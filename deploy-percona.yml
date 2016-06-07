@@ -1,0 +1,6 @@
+---
+- vars_files:
+  - group_vars/all 
+  hosts: controller_nodes
+  roles:
+   - { role: roles/controller-common/install_percona_cluster }

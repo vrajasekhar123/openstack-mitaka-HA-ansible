@@ -1,0 +1,9 @@
+---
+- hosts: ansible_openstack_mitaka
+  tasks:
+  - name: install chrony
+    apt: pkg=chrony state=installed
+  - name: change conf in all controller nodes
+    lineinfile: dest=/etc/chrony/chrony.conf line='server {{ controller01_eth0 }} iburst'
+  - name: Restart chrony
+    service: name=chrony state=restarted

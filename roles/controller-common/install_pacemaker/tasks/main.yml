@@ -1,0 +1,31 @@
+---
+  - name: Install percona packages
+    apt: name={{ item }} state=present force=yes
+    with_items:
+     - pacemaker
+     - crmsh
+     - corosync
+     - cluster-glue
+     - resource-agents
+     - libqb0
+  - name: Configure /etc/default/corosync START option
+    lineinfile: dest=/etc/default/corosync regexp=^START line=START=yes
+  - name: Configure uidgid /etc/corosync/uidgid.d/pacemaker
+    template: src=pacemaker.j2 dest=/etc/corosync/uidgid.d/pacemaker
+  - name: Configure corosync.conf file in controller01
+    template: src=corosync.conf.controller01.j2 dest=/etc/corosync/corosync.conf
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: Configure corosync.conf file in controller02
+    template: src=corosync.conf.controller02.j2 dest=/etc/corosync/corosync.conf
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Configure corosync.conf file in controller03
+    template: src=corosync.conf.controller03.j2 dest=/etc/corosync/corosync.conf
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Restart corosync service
+    service: name=corosync state=restarted
+  - name: enable Pacemaker to start on system boot
+    command: update-rc.d pacemaker start 20 2 3 4 5 . stop 00 0 1 6 .
+  - name: start pacemaker service
+    service: name=pacemaker state=restarted
+  - name: Set basic cluster properties
+    command: crm configure property pe-warn-series-max="1000" pe-input-series-max="1000"  pe-error-series-max="1000" cluster-recheck-interval="5min"

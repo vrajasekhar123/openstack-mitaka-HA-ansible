@@ -1,0 +1,11 @@
+[ansible_openstack_mitaka:children]
+controller_nodes
+compute_nodes
+
+[controller_nodes]
+10.0.0.110
+10.0.0.112
+10.0.0.114
+
+[compute_nodes]
+10.0.0.116

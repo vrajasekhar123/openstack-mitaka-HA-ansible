@@ -1,0 +1,62 @@
+---
+# common code for all controllers
+  - name:  Add GnuPG key Percona XtraDB Cluster
+    command: apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 1C4CBDCDCD2EFD2A
+  - name: Add repository for Percona XtraDB Cluster in galera.list sources list
+    lineinfile: dest=/etc/apt/sources.list.d/percona.list create=yes line="deb http://repo.percona.com/apt trusty main"
+  - lineinfile: dest=/etc/apt/sources.list.d/percona.list create=yes line="deb-src http://repo.percona.com/apt trusty main"
+  - name: set resolv.conf
+    lineinfile: dest=/etc/resolv.conf line="nameserver 8.8.8.8"
+  - name: Upgrade the packages
+    apt: update_cache=yes upgrade=dist force=yes
+  - name: Install percona-xtradb-cluster in controller nodes
+    apt: name={{ item }} state=present force=yes
+    with_items:
+     - percona-xtradb-cluster-galera-2.x
+     - percona-xtradb-cluster-55
+     - python-mysqldb
+  - name: Install percona XtraDB full Cluster
+    apt: name=percona-xtradb-cluster-full-55 state=present force=yes
+  - name: Percona apt Testing repository
+    lineinfile: dest=/etc/apt/sources.list create=yes line="deb http://repo.percona.com/apt trusty main testing"
+  - lineinfile: dest=/etc/apt/sources.list create=yes line="deb-src http://repo.percona.com/apt trusty main testing"
+  - name: Apt-Pinning the packages
+    template: src=00percona.pref.j2 dest=/etc/apt/preferences.d/00percona.pref   
+  - name: Create and grant priv for sstuser user
+    mysql_user: name=sstuser password=s3cretPass host=localhost priv="*.*:RELOAD, LOCK TABLES, REPLICATION CLIENT" state=present
+
+# Code for only controller01
+  - name: Stopping mysql
+    service: name=mysql state=stopped
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: Configure /etc/mysql/my.cnf
+    template: src=my.cnf.controller01.j2 dest=/etc/mysql/my.cnf
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: Stopping mysql
+    service: name=mysql state=stopped
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: Start mysql with bootstrap
+    command: /etc/init.d/mysql bootstrap-pxc
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+
+# Code for only controller02
+  - name: Stopping mysql
+    service: name=mysql state=stopped
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Configure /etc/mysql/my.cnf
+    template: src=my.cnf.controller02.j2 dest=/etc/mysql/my.cnf
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Starting mysql
+    service: name=mysql state=started
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+
+# Code for only controller03
+  - name: Stopping mysql
+    service: name=mysql state=stopped
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Configure /etc/mysql/my.cnf
+    template: src=my.cnf.controller03.j2 dest=/etc/mysql/my.cnf
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Starting mysql
+    service: name=mysql state=started
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"

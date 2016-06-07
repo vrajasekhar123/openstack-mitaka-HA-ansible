@@ -1,0 +1,60 @@
+---
+# Common code for All controllers
+  - name: Add repository for rabbitmq sources list
+    lineinfile: dest=/etc/apt/sources.list.d/rabbitmq.list create=yes line="deb http://www.rabbitmq.com/debian/ testing main"
+  - name: Upgrade the packages
+    apt: update_cache=yes upgrade=dist force=yes
+  - name: Install rabbitmq-server in controller nodes
+    apt: name=rabbitmq-server state=present force=yes
+  - name: Copy the erlang.cookie to temp location
+    fetch: src=/var/lib/rabbitmq/.erlang.cookie dest=/var/tmp/.erlang.cookie
+  - name: Change the permission for cookie file
+    file: path=/var/lib/rabbitmq/.erlang.cookie owner=rabbitmq group=rabbitmq mode=0400
+
+# Script for Controller02 extra tasks
+  - name: Copy the erlang.cookie to controller02
+    copy: src=/var/tmp/.erlang.cookie/{{ controller01_eth0 }}/var/lib/rabbitmq/.erlang.cookie dest=/var/lib/rabbitmq/.erlang.cookie
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Update the permissions
+    file: path=/var/lib/rabbitmq/.erlang.cookie owner=rabbitmq group=rabbitmq mode=0400
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Start rabitmq
+    service: name=rabbitmq-server state=started
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Stop rabbitmqctl app
+    command: rabbitmqctl stop_app
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Join cluster with controller01
+    command: rabbitmqctl join_cluster --ram rabbit@{{ controller01 }}
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+    ignore_errors: yes
+  - name: Start rabbitmqctl app
+    command: rabbitmqctl start_app
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+
+# Script for Controller03 etra tasks
+  - name: Copy the erlang.cookie to controller03
+    copy: src=/var/tmp/.erlang.cookie/{{ controller01_eth0 }}/var/lib/rabbitmq/.erlang.cookie dest=/var/lib/rabbitmq/.erlang.cookie
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Update the permissions
+    file: path=/var/lib/rabbitmq/.erlang.cookie owner=rabbitmq group=rabbitmq mode=0400
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Start rabitmq
+    service: name=rabbitmq-server state=started
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Stop rabbitmqctl app
+    command: rabbitmqctl stop_app
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Join cluster with controller01
+    command: rabbitmqctl join_cluster --ram rabbit@{{ controller01 }}
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+    ignore_errors: yes
+  - name: Start rabbitmqctl app
+    command: rabbitmqctl start_app
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: set ha-mode policy
+    rabbitmq_policy: name=ha-all pattern='^(?!amq\.).*' state=present
+    args:
+      tags:
+        "ha-mode": all
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"

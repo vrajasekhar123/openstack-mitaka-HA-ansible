@@ -1,0 +1,5 @@
+---
+  - include: deploy-basic-setup.yml
+  - include: deploy-percona.yml
+  - include: deploy-rabbitmq.yml 
+  - include: deploy-pacemaker.yml 
