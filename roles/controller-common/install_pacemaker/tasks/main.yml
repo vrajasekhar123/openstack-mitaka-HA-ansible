@@ -29,3 +29,5 @@
     service: name=pacemaker state=restarted
   - name: Set basic cluster properties
     command: crm configure property pe-warn-series-max="1000" pe-input-series-max="1000"  pe-error-series-max="1000" cluster-recheck-interval="5min"
+  - name: Configure crm vip
+    command: crm configure primitive vip ocf:heartbeat:IPaddr2 params ip="{{ cluster_vip }}" cidr_netmask="24" op monitor interval="30s"
