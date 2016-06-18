@@ -1,0 +1,5 @@
+---
+  - name: Install haproxy package
+    apt: name=haproxy state=present force=yes
+  - name: Configure haproxy.cfg
+    template: src=haproxy.cfg.j2 dest=/etc/haproxy/haproxy.cfg

@@ -1,0 +1,147 @@
+---
+  - name: Install python-mysqldb
+    apt: name=python-mysqldb state=present force=yes
+  - name: Download the OpenStack Identity resource to Pacemaker
+    file: path=/usr/lib/ocf/resource.d/openstack state=directory mode=0755
+  - get_url: url=https://git.openstack.org/cgit/openstack/openstack-resource-agents/plain/ocf/keystone dest=/usr/lib/ocf/resource.d/openstack/keystone mode=0755
+  - name: Add p_keystone resource
+    shell: crm configure primitive p_keystone ocf:openstack:keystone params config="/etc/keystone/keystone.conf" os_password="{{ admin_user_pass }}" os_username="admin" os_tenant_name="admin" os_auth_url="http://{{ mitakaha_vip_fqdn }}:5000/v2.0/" op monitor interval="30s" timeout="30s"
+    ignore_errors: yes
+
+  - name: Create database for keystone
+    mysql_db: login_user=root login_password={{ mysql_root_password  }} name=keystone state=present
+  - name: Create keystone user and grant privileges to keystone database.
+    mysql_user: login_user=root login_password={{ mysql_root_password  }} name=keystone password={{ keystone_dbpass }} priv=*.*:ALL state=present host={{ item }}
+    with_items:
+     - "{{ controller01 }}"
+     - "{{ controller02 }}"
+     - "{{ controller03 }}"
+     - "{{ mitakaha_vip_fqdn }}"
+     - 127.0.0.1
+     - localhost
+     - ::1
+  - name: disable keystone auto start service
+    lineinfile: dest=/etc/init/keystone.override line=manual create=yes
+  - name: Install keystone apache2 libapache2-mod-wsgi in controller node
+    apt: name={{ item }} state=present force=yes
+    with_items:
+     - keystone
+     - apache2
+     - libapache2-mod-wsgi
+  - name: update /etc/keystone/keystone.conf
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=DEFAULT
+              option=admin_token
+              value={{ openssl_rand }}
+              backup=yes
+
+  - name: update /etc/keystone/keystone.conf
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=database
+              option=connection
+              value=mysql+pymysql://keystone:{{ keystone_dbpass }}@{{ mitakaha_vip_fqdn }}/keystone
+              backup=yes
+
+  - name: update /etc/keystone/keystone.conf
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=token
+              option=provider
+              value=fernet
+              backup=yes
+
+  - name: Update bind_host of eventlet_server section in keystone.conf controller01
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=eventlet_server
+              option=bind_host
+              value={{ controller01_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: Update public_bind_host of eventlet_server section in keystone.conf controller01
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=eventlet_server
+              option=public_bind_host
+              value={{ controller01_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: Update admin_bind_host of eventlet_server section in keystone.conf controller01
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=eventlet_server
+              option=admin_bind_host
+              value={{ controller01_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+    
+  - name: Update bind_host of eventlet_server section in keystone.conf controller02
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=eventlet_server
+              option=bind_host
+              value={{ controller02_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Update public_bind_host of eventlet_server section in keystone.conf controller02
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=eventlet_server
+              option=public_bind_host
+              value={{ controller02_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Update admin_bind_host of eventlet_server section in keystone.conf controller02
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=eventlet_server
+              option=admin_bind_host
+              value={{ controller02_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+
+  - name: Update bind_host of eventlet_server section in keystone.conf controller03
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=eventlet_server
+              option=bind_host
+              value={{ controller03_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Update public_bind_host of eventlet_server section in keystone.conf controller03
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=eventlet_server
+              option=public_bind_host
+              value={{ controller03_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Update admin_bind_host of eventlet_server section in keystone.conf controller03
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=eventlet_server
+              option=admin_bind_host
+              value={{ controller03_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Update catalog driver in keystone.conf 
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=catalog
+              option=driver
+              value=keystone.catalog.backends.sql.Catalog
+  - name: Update identity driver in keystone.conf 
+    ini_file: dest=/etc/keystone/keystone.conf
+              section=identity
+              option=driver
+              value=keystone.identity.backends.sql.Identity
+ 
+  - name: Populate the Identity service database in controller node
+    shell: su -s /bin/sh -c "keystone-manage db_sync" keystone
+  - name: Initialize Fernet keys
+    shell: keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
+
+  - name: updaete /etc/apache2/apache2.conf controller01
+    lineinfile: dest=/etc/apache2/apache2.conf line='ServerName {{ controller01 }}'
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: updaete /etc/apache2/apache2.conf controller02
+    lineinfile: dest=/etc/apache2/apache2.conf line='ServerName {{ controller02 }}'
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: updaete /etc/apache2/apache2.conf controller03
+    lineinfile: dest=/etc/apache2/apache2.conf line='ServerName {{ controller03 }}'
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: update /etc/apache2/sites-available/wsgi-keystone.conf
+    template: src=wsgi-keystone.conf.j2 dest=/etc/apache2/sites-available/wsgi-keystone.conf
+  - name: Enable the Identity service virtual hosts
+    file: src=/etc/apache2/sites-available/wsgi-keystone.conf dest=/etc/apache2/sites-enabled/wsgi-keystone.conf state=link
+  - name: Restart Apache2
+    service: name=apache2 state=restarted
+  - name: Remove /var/lib/keystone/keystone.db
+    file: path=/var/lib/keystone/keystone.db state=absent
+  - name: Create admin-openrc.sh file
+    template: src=admin-openrc.sh.j2 dest=/root/admin-openrc.sh
+  - name: Create demo-openrc.sh file
+    template: src=demo-openrc.sh.j2 dest=/root/demo-openrc.sh
+  - name: Configure all tenants, users, roles, services and endpoints
+    template: src=keystone-all.sh.j2 dest=/var/tmp/keystone-all.sh
+  - command: bash /var/tmp/keystone-all.sh

@@ -3,3 +3,9 @@
   - include: deploy-percona.yml
   - include: deploy-rabbitmq.yml 
   - include: deploy-pacemaker.yml 
+  - include: deploy-haproxy.yml
+  - include: deploy-keystone.yml 
+  - include: deploy-glance.yml
+  - include: deploy-cinder.yml
+  - include: deploy-nova.yml
+  - include: deploy-neutron.yml

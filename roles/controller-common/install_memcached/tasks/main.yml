@@ -1,0 +1,17 @@
+---
+  - name: Install memcached python-memcache in controller node
+    apt: name={{ item }} state=present force=yes
+    with_items:
+     - memcached
+     - python-memcache
+  - name: update /etc/memcached.conf file
+    lineinfile: dest=/etc/memcached.conf line="-l {{ controller01_eth0 }}" regexp="^-l 127.0.0.1"
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: update /etc/memcached.conf file
+    lineinfile: dest=/etc/memcached.conf line="-l {{ controller02_eth0 }}" regexp="^-l 127.0.0.1"
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: update /etc/memcached.conf file
+    lineinfile: dest=/etc/memcached.conf line="-l {{ controller03_eth0 }}" regexp="^-l 127.0.0.1"
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Restart Memcached
+    service: name=memcached state=restarted

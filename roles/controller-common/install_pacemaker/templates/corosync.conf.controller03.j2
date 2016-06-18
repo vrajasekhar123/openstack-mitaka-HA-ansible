@@ -40,8 +40,8 @@ totem {
         ringnumber: 0
         bindnetaddr: {{ pacemaker_bindnetaddr }}
 #        broadcast: yes
-#        mcastaddr: 226.94.1.1
-        mcastaddr: 239.255.42.1
+        mcastaddr: 226.94.1.1
+#        mcastaddr: 239.255.42.1
         mcastport: 5405
     }
 #    interface {
@@ -76,10 +76,7 @@ amf {
 }
 quorum {
         provider: corosync_votequorum
-        expected_votes: 7
-        wait_for_all: 1
-        last_man_standing: 1
-        last_man_standing_window: 10000
+        three_node: 2
        }
 
 aisexec {
@@ -90,7 +87,8 @@ aisexec {
 logging {
         fileline: off
         to_stderr: yes
-        to_logfile: no
+        to_logfile: yes
+        logfile: /var/log/corosync/corosync.log
         to_syslog: yes
     syslog_facility: daemon
         debug: off

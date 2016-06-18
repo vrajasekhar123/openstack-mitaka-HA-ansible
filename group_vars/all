@@ -1,21 +1,24 @@
 ---
-controller01: controller01
-controller02: controller02
-controller03: controller03
-compute01: compute01
-controller01_eth0: 10.0.0.110
-controller01_eth1: 10.0.0.111
-controller02_eth0: 10.0.0.112
-controller02_eth1: 10.0.0.113
-controller03_eth0: 10.0.0.114
-controller03_eth1: 10.0.0.115
-compute01_eth0: 10.0.0.116
-compute01_eth1: 10.0.0.117
-pacemaker_bindnetaddr: 10.0.0.109
+controller01: controller001
+controller02: controller002
+controller03: controller003
+compute01: compute001
+controller01_eth0: 10.0.0.210
+controller01_eth1: 10.0.0.211
+controller02_eth0: 10.0.0.212
+controller02_eth1: 10.0.0.213
+controller03_eth0: 10.0.0.214
+controller03_eth1: 10.0.0.215
+compute01_eth0: 10.0.0.216
+compute01_eth1: 10.0.0.217
+pacemaker_bindnetaddr: 10.0.0.0
+mitakaha_vip: 10.0.0.208
+mitakaha_vip_fqdn: mitakaha.vip
+
 mysql_root_password: root
 rabbit_pass: pass
 openssl_rand: 1a2b3c4d5e
-admin_token: http://{{ controller_eth0 }}:35357/v3 
+os_url: http://{{ mitakaha_vip_fqdn }}:35357/v3 
 keystone_dbpass: pass
 admin_user_pass: pass
 demo_user_pass: pass

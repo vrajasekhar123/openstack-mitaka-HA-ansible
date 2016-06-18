@@ -1,0 +1,10 @@
+---
+- hosts: ansible_openstack_mitaka
+  tasks:
+  - name: Update /etc/host file in all nodes
+    lineinfile: dest=/etc/hosts line="{{ controller01_eth0 }} {{ controller01 }}"
+  - lineinfile: dest=/etc/hosts line="{{ controller02_eth0 }} {{ controller02 }}"
+  - lineinfile: dest=/etc/hosts line="{{ controller03_eth0 }} {{ controller03 }}"
+  - lineinfile: dest=/etc/hosts line="{{ compute01_eth0 }} {{ compute01 }}"
+  - lineinfile: dest=/etc/hosts line="{{ mitakaha_vip }} {{ mitakaha_vip_fqdn }}"
+

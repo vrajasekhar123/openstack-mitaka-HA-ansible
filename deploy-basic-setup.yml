@@ -1,3 +1,4 @@
 ---
+- include: update_hosts.yml 
 - include: install-ntp.yml
 - include: createrepo.yml 

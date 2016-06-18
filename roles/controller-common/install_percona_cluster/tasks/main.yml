@@ -21,9 +21,30 @@
     lineinfile: dest=/etc/apt/sources.list create=yes line="deb http://repo.percona.com/apt trusty main testing"
   - lineinfile: dest=/etc/apt/sources.list create=yes line="deb-src http://repo.percona.com/apt trusty main testing"
   - name: Apt-Pinning the packages
-    template: src=00percona.pref.j2 dest=/etc/apt/preferences.d/00percona.pref   
+    template: src=00percona.pref.j2 dest=/etc/apt/preferences.d/00percona.pref
+  - name: Start mysql with bootstrap
+    command: /etc/init.d/mysql bootstrap-pxc
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: Starting mysql
+    service: name=mysql state=started
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: Starting mysql
+    service: name=mysql state=started
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: Copy python script to change the root password
+    copy: src=../../../change_mysql_root_password.py dest=/var/tmp/change_mysql_root_password.py owner=root group=root mode=755
+  - name: Change root user password
+    command: /usr/bin/python /var/tmp/change_mysql_root_password.py "{{ mysql_root_password }}"
   - name: Create and grant priv for sstuser user
-    mysql_user: name=sstuser password=s3cretPass host=localhost priv="*.*:RELOAD, LOCK TABLES, REPLICATION CLIENT" state=present
+    mysql_user: login_user=root login_password={{ mysql_root_password  }} name=sstuser password=s3cretPass host=localhost priv=*.*:ALL state=present
+    with_items:
+     - "{{ controller01 }}"
+     - "{{ controller02 }}"
+     - "{{ controller03 }}"
+     - "{{ mitakaha_vip_fqdn }}"
+     - 127.0.0.1
+     - localhost
+     - ::1
 
 # Code for only controller01
   - name: Stopping mysql
@@ -48,7 +69,7 @@
     when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
   - name: Starting mysql
     service: name=mysql state=started
-    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
 
 # Code for only controller03
   - name: Stopping mysql

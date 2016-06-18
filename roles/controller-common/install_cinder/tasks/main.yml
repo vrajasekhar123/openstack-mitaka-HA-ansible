@@ -1,0 +1,243 @@
+---
+  - name: Download the OpenStack Image API resource to Pacemaker
+    file: path=/usr/lib/ocf/resource.d/openstack state=directory mode=0755
+  - get_url: url=https://git.openstack.org/cgit/openstack/openstack-resource-agents/plain/ocf/cinder-api dest=/usr/lib/ocf/resource.d/openstack/cinder-api mode=0755
+  - name: Add p_glance-api resource
+    shell: crm configure primitive p_cinder-api ocf:openstack:cinder-api params config="/etc/cinder/cinder.conf" os_password="{{ glance_user_pass }}" os_username="admin" os_tenant_name="admin" keystone_get_token_url="http://{{ mitakaha_vip_fqdn }}:5000/v2.0/tokens" op monitor interval="30s" timeout="30s"
+    ignore_errors: yes
+
+  - name: Create database for glance
+    mysql_db: login_user=root login_password={{ mysql_root_password  }} name=cinder state=present
+  - name: Create glance user and grant privileges to glance database.
+    mysql_user: login_user=root login_password={{ mysql_root_password  }} name=cinder password={{ cinder_dbpass }} priv=*.*:ALL state=present host={{ item }}
+    with_items:
+     - "{{ controller01 }}"
+     - "{{ controller02 }}"
+     - "{{ controller03 }}"
+     - "{{ mitakaha_vip_fqdn }}"
+     - 127.0.0.1
+     - localhost
+     - ::1
+  - name: Install glance and cinder-api cinder-scheduler on controller node
+    apt: name={{ item }} state=present force=yes
+    with_items:
+     - cinder-api
+     - cinder-scheduler
+  - name: update /etc/cinder/cinder.conf 
+    ini_file: dest=/etc/cinder/cinder.conf 
+              section=database
+              option=connection
+              value=mysql+pymysql://cinder:{{ cinder_dbpass }}@{{ mitakaha_vip_fqdn }}/cinder
+  - name: update /etc/cinder/cinder.conf 
+    ini_file: dest=/etc/cinder/cinder.conf 
+              section=DEFAULT
+              option=rpc_backend
+              value=rabbit
+  - name: update /etc/cinder/cinder.conf 
+    ini_file: dest=/etc/cinder/cinder.conf 
+              section=DEFAULT
+              option=osapi_volume_listen
+              value={{ controller01_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: update /etc/cinder/cinder.conf 
+    ini_file: dest=/etc/cinder/cinder.conf 
+              section=DEFAULT
+              option=osapi_volume_listen
+              value={{ controller02_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: update /etc/cinder/cinder.conf 
+    ini_file: dest=/etc/cinder/cinder.conf 
+              section=DEFAULT
+              option=osapi_volume_listen
+              value={{ controller03_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+
+  - name: update /etc/cinder/cinder.conf 
+    ini_file: dest=/etc/cinder/cinder.conf 
+              section=oslo_messaging_rabbit
+              option=rabbit_host
+              value={{ controller01 }}:5672,{{ controller02 }}:5672,{{ controller03 }}:5672
+  - name: update /etc/cinder/cinder.conf 
+    ini_file: dest=/etc/cinder/cinder.conf 
+              section=oslo_messaging_rabbit
+              option=rabbit_userid
+              value=openstack
+  - name: update /etc/cinder/cinder.conf 
+    ini_file: dest=/etc/cinder/cinder.conf 
+              section=oslo_messaging_rabbit
+              option=rabbit_password
+              value={{ rabbit_pass }}
+  - name: update rabbit_retry_interval in /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=oslo_messaging_rabbit
+              option=rabbit_retry_interval
+              value=1
+  - name: update rabbit_retry_backoff in /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=oslo_messaging_rabbit
+              option=rabbit_retry_backoff
+              value=2
+  - name: update rabbit_max_retries in /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=oslo_messaging_rabbit
+              option=rabbit_max_retries
+              value=0
+  - name: update rabbit_durable_queues in /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=oslo_messaging_rabbit
+              option=rabbit_durable_queues
+              value=true
+  - name: update rabbit_ha_queues in /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=oslo_messaging_rabbit
+              option=rabbit_ha_queues
+              value=true
+  - name: update rabbit_ha_queues in /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=DEFAULT
+              option=auth_strategy
+              value=keystone
+
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              state=absent
+              backup=yes
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              state=present
+              backup=yes
+
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=auth_uri
+              value=http://{{ controller01 }}:5000
+              backup=yes
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=auth_url
+              value=http://{{ controller01 }}:35357
+              backup=yes
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=memcached_servers
+              value={{ controller01 }}:11211
+              backup=yes
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=auth_uri
+              value=http://{{ controller02 }}:5000
+              backup=yes
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=auth_url
+              value=http://{{ controller02 }}:35357
+              backup=yes
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=memcached_servers
+              value={{ controller02 }}:11211
+              backup=yes
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=auth_uri
+              value=http://{{ controller03 }}:5000
+              backup=yes
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=auth_url
+              value=http://{{ controller03 }}:35357
+              backup=yes
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=memcached_servers
+              value={{ controller03 }}:11211
+              backup=yes
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=auth_type
+              value=password
+              backup=yes
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=project_domain_name
+              value=default
+              backup=yes
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=user_domain_name
+              value=default
+              backup=yes
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=project_name
+              value=service
+              backup=yes
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=username
+              value=cinder
+              backup=yes
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=keystone_authtoken
+              option=password
+              value={{ cinder_user_pass }}
+              backup=yes
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=DEFAULT
+              option=my_ip
+              value={{ controller01_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller01_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=DEFAULT
+              option=my_ip
+              value={{ controller02_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=DEFAULT
+              option=my_ip
+              value={{ controller03_eth0 }}
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+  - name: update /etc/cinder/cinder.conf
+    ini_file: dest=/etc/cinder/cinder.conf
+              section=oslo_concurrency
+              option=lock_path
+              value=/var/lib/cinder/tmp
+
+  - name: Populate the Block Storage database in controller node
+    shell: su -s /bin/sh -c "cinder-manage db sync" cinder
+  - name: Restart Cinder-scheduler
+    service: name=cinder-scheduler state=restarted
+  - name: Restart Cinder-api
+    service: name=cinder-api state=restarted
+  - name: Remove /var/lib/cinder/cinder.sqlite
+    file: path=/var/lib/cinder/cinder.sqlite state=absent

@@ -19,7 +19,10 @@
     file: path=/var/lib/rabbitmq/.erlang.cookie owner=rabbitmq group=rabbitmq mode=0400
     when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
   - name: Start rabitmq
-    service: name=rabbitmq-server state=started
+    command: ps -eaf | grep rabbitmq | awk '{print $2 }' | xargs kill
+    when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
+    ignore_errors: yes
+  - service: name=rabbitmq-server state=started
     when: ansible_eth0.ipv4.address == "{{ controller02_eth0 }}"
   - name: Stop rabbitmqctl app
     command: rabbitmqctl stop_app
@@ -40,7 +43,10 @@
     file: path=/var/lib/rabbitmq/.erlang.cookie owner=rabbitmq group=rabbitmq mode=0400
     when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
   - name: Start rabitmq
-    service: name=rabbitmq-server state=started
+    shell: ps -eaf | grep rabbitmq | awk '{print $2 }' | xargs kill
+    when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
+    ignore_errors: yes
+  - service: name=rabbitmq-server state=started
     when: ansible_eth0.ipv4.address == "{{ controller03_eth0 }}"
   - name: Stop rabbitmqctl app
     command: rabbitmqctl stop_app
